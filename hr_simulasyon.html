@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Analitik Grandmaster Simülasyonu</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- GENEL STİLLER --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        
+        /* --- MENÜ VE DÜZEN --- */
+        #main-menu { max-width: 1400px; margin: 40px auto; padding: 20px; }
+        .dashboard-header { text-align: center; margin-bottom: 40px; }
+        .dashboard-header h1 { font-size: 2.5em; color: #2c3e50; }
+        .dashboard-header p { font-size: 1.2em; color: #7f8c8d; }
+
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        
+        .card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.2); }
+        .card-header { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 2em; color: white; }
+        .card-body { padding: 15px; text-align: center; }
+        .card-body h3 { font-size: 1.1em; margin-bottom: 5px; color: #2c3e50; }
+        .card-body p { font-size: 0.85em; color: #666; }
+        
+        /* Modül Renkleri */
+        .bg-rec { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .bg-comp { background: linear-gradient(135deg, #2C3E50 0%, #4CA1AF 100%); }
+        .bg-train { background: linear-gradient(135deg, #FF8008 0%, #FFC837 100%); }
+        .bg-war { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
+        .bg-perf { background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); }
+        .bg-swp { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); }
+        .bg-dei { background: linear-gradient(135deg, #ec008c 0%, #fc6767 100%); }
+        .bg-ona { background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%); }
+        /* Yeni Modül Renkleri */
+        .bg-isg { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); } /* Kırmızı: İSG */
+        .bg-ben { background: linear-gradient(135deg, #F2994A 0%, #F2C94C 100%); } /* Sarı/Turuncu: Yan Haklar */
+        .bg-sent { background: linear-gradient(135deg, #4568DC 0%, #B06AB3 100%); } /* Mor/Mavi: Duygu */
+
+        /* --- MODÜL KONTEYNER --- */
+        .module-container { display: none; min-height: 100vh; padding: 20px; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+        
+        .back-btn { position: fixed; top: 20px; left: 20px; z-index: 999; background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 30px; cursor: pointer; border: none; font-weight: bold; }
+        
+        .sim-wrapper { max-width: 1400px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
+        .sim-header { padding: 30px; text-align: center; color: white; }
+        
+        /* Seviye Seçimi */
+        .level-screen { padding: 50px; text-align: center; background: #fff; }
+        .level-grid { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 30px; }
+        .level-card { width: 280px; padding: 20px; border-radius: 15px; border: 2px solid #eee; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
+        .level-card:hover { transform: scale(1.05); border-color: #333; }
+        .level-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; color: white; font-weight: bold; margin-bottom: 15px; font-size: 0.8em; }
+        
+        .lvl-easy { background: #e8f5e9; } .lvl-easy .level-badge { background: #2e7d32; }
+        .lvl-mid { background: #fff3e0; } .lvl-mid .level-badge { background: #ef6c00; }
+        .lvl-hard { background: #ffebee; } .lvl-hard .level-badge { background: #c62828; }
+
+        /* Oyun İçeriği */
+        .game-content { display: none; padding: 30px; }
+        .game-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; padding: 20px; background: #f8f9fa; border-bottom: 2px solid #ddd; }
+        .info-box { background: white; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .info-box .val { font-size: 1.4em; font-weight: bold; color: #333; }
+        
+        .task-section { margin: 25px 0; padding: 20px; background: #f8f9fa; border-radius: 10px; border: 1px solid #ddd; }
+        .chart-box { position: relative; height: 300px; background: white; padding: 10px; border-radius: 10px; margin: 15px 0; }
+        
+        .input-row { margin: 15px 0; }
+        .input-row label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .input-row input, .input-row select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em;}
+        
+        .btn { padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; color: white; font-weight: bold; margin-right: 10px; }
+        .btn-check { background: #333; }
+        .result-box { margin-top: 15px; padding: 15px; border-radius: 5px; display: none; }
+        .res-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .res-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        /* Soru Kutuları */
+        .thinking-box { background: #e8eaf6; border-left: 5px solid #3f51b5; padding: 20px; margin-bottom: 25px; border-radius: 5px; }
+        .thinking-box h4 { margin-bottom: 10px; color: #1a237e; }
+        .thinking-box li { margin-bottom: 8px; color: #444; font-style: italic; }
+
+    </style>
+</head>
+<body>
+
+    <div id="main-menu">
+        <div class="dashboard-header">
+            <h1>🎓 HR Analitik Simülasyonu</h1>
+            <p>11 Kritik İK Fonksiyonunda Analitik Yetkinlik</p>
+        </div>
+        <div class="grid-container">
+            <div class="card" onclick="App.openModule('rec')"><div class="card-header bg-rec">🚀</div><div class="card-body"><h3>İşe Alım</h3><p>Huni & Maliyet</p></div></div>
+            <div class="card" onclick="App.openModule('comp')"><div class="card-header bg-comp">⚖️</div><div class="card-body"><h3>Ücret</h3><p>Adalet & Bütçe</p></div></div>
+            <div class="card" onclick="App.openModule('train')"><div class="card-header bg-train">🎓</div><div class="card-body"><h3>Eğitim</h3><p>Etki & ROI</p></div></div>
+            <div class="card" onclick="App.openModule('war')"><div class="card-header bg-war">🛡️</div><div class="card-body"><h3>İşten Ayrılma</h3><p>Kriz & Çözüm</p></div></div>
+            <div class="card" onclick="App.openModule('perf')"><div class="card-header bg-perf">📊</div><div class="card-body"><h3>Performans</h3><p>9-Box & Yedekleme</p></div></div>
+            <div class="card" onclick="App.openModule('swp')"><div class="card-header bg-swp">📈</div><div class="card-body"><h3>Planlama</h3><p>Arz & Talep</p></div></div>
+            <div class="card" onclick="App.openModule('dei')"><div class="card-header bg-dei">🌈</div><div class="card-body"><h3>DEI</h3><p>Kapsayıcılık</p></div></div>
+            <div class="card" onclick="App.openModule('ona')"><div class="card-header bg-ona">🕸️</div><div class="card-body"><h3>ONA</h3><p>Ağ Analizi</p></div></div>
+            <div class="card" onclick="App.openModule('isg')"><div class="card-header bg-isg">⛑️</div><div class="card-body"><h3>İSG</h3><p>Kaza Tahmini</p></div></div>
+            <div class="card" onclick="App.openModule('ben')"><div class="card-header bg-ben">🎁</div><div class="card-body"><h3>Yan Haklar</h3><p>Değer vs Maliyet</p></div></div>
+            <div class="card" onclick="App.openModule('sent')"><div class="card-header bg-sent">💬</div><div class="card-body"><h3>Duygu Analizi</h3><p>Metin Madenciliği</p></div></div>
+        </div>
+    </div>
+
+    <div id="mod-rec" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-rec"><h1>🚀 İşe Alım Simülasyonu</h1></div>
+            <div id="rec-select" class="level-screen">
+                <h2>Seviye Seçin</h2>
+                <div class="level-grid"><div class="level-card lvl-easy" onclick="RecModule.loadLevel('easy')"><h3>Startup</h3></div><div class="level-card lvl-mid" onclick="RecModule.loadLevel('mid')"><h3>Kurumsal</h3></div><div class="level-card lvl-hard" onclick="RecModule.loadLevel('hard')"><h3>Kriz</h3></div></div>
+            </div>
+            <div id="rec-game" class="game-content">
+                <div class="thinking-box"><h4>🤔 Stratejik Soru</h4><ul><li>Hangi aşamadaki aday kaybı şirkete en çok maliyet yaratır? (Başvuru mu, Teklif mi?)</li></ul></div>
+                <div class="game-info"><div class="info-box">Bütçe<div class="val" id="rec-budget"></div></div><div class="info-box">Hedef<div class="val" id="rec-target"></div></div></div>
+                <div class="task-section"><h3>Görev 1: Huni Geçiş Oranı</h3><p id="rec-desc1"></p><div class="chart-box"><canvas id="rec-chart1"></canvas></div><div class="input-row"><input type="number" id="rec-inp1" placeholder="%"></div><button class="btn btn-check" onclick="RecModule.checkTask1()">Kontrol</button><div id="rec-res1" class="result-box"></div></div>
+                <div class="task-section"><h3>Görev 2: Darboğaz Tespiti</h3><div class="input-row"><select id="rec-inp2"><option value="">Seç...</option><option value="screen">Eleme</option><option value="tech">Teknik</option><option value="offer">Teklif</option><option value="accept">Kabul</option></select></div><button class="btn btn-check" onclick="RecModule.checkTask2()">Kontrol</button><div id="rec-res2" class="result-box"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-comp" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-comp"><h1>⚖️ Ücret Yönetimi</h1></div>
+            <div id="comp-select" class="level-screen"><div class="level-grid"><div class="level-card lvl-easy" onclick="CompModule.loadLevel('easy')"><h3>Tekil Vaka</h3></div><div class="level-card lvl-mid" onclick="CompModule.loadLevel('mid')"><h3>Ekip</h3></div><div class="level-card lvl-hard" onclick="CompModule.loadLevel('hard')"><h3>Enflasyon</h3></div></div></div>
+            <div id="comp-game" class="game-content">
+                <div class="thinking-box"><h4>🤔 Stratejik Soru</h4><ul><li>Compa-Ratio düşükse bu her zaman "adaletsizlik" midir, yoksa "deneyimsizlik" mi?</li></ul></div>
+                <div class="game-info"><div class="info-box">Bütçe<div class="val" id="comp-budget"></div></div></div>
+                <div class="task-section"><h3>Compa-Ratio Analizi</h3><p id="comp-p1"></p><div class="chart-box" style="height:250px"><canvas id="comp-chart1"></canvas></div><div class="input-row"><input type="number" id="comp-inp1" step="0.01"></div><button class="btn btn-check" onclick="CompModule.checkTask1()">Kontrol</button><div id="comp-res1" class="result-box"></div></div>
+                <div class="task-section"><h3>Merit Matrix Dağıtımı</h3><div id="comp-employees"></div><button class="btn btn-check" style="margin-top:20px" onclick="CompModule.checkTask2()">Onayla</button><div id="comp-res2" class="result-box"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-train" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-train"><h1>🎓 Eğitim ROI</h1></div>
+            <div id="train-select" class="level-screen"><div class="level-grid"><div class="level-card lvl-easy" onclick="TrainModule.loadLevel('easy')"><h3>Satış</h3></div><div class="level-card lvl-mid" onclick="TrainModule.loadLevel('mid')"><h3>Liderlik</h3></div><div class="level-card lvl-hard" onclick="TrainModule.loadLevel('hard')"><h3>Dijital</h3></div></div></div>
+            <div id="train-game" class="game-content">
+                <div class="thinking-box"><h4>🤔 Stratejik Soru</h4><ul><li>Eğitimin etkisi hemen mi görülür, yoksa zamana mı yayılır?</li></ul></div>
+                <div class="game-info"><div class="info-box">Maliyet<div class="val" id="train-cost"></div></div></div>
+                <div class="task-section"><h3>A/B Testi Sonucu</h3><div class="chart-box"><canvas id="train-chart1"></canvas></div><div class="input-row"><label>Toplam Fark (₺):</label><input type="number" id="train-inp1"></div><button class="btn btn-check" onclick="TrainModule.checkTask1()">Analiz</button><div id="train-res1" class="result-box"></div></div>
+                <div class="task-section"><h3>ROI (%)</h3><div class="input-row"><input type="number" id="train-inp2"></div><button class="btn btn-check" onclick="TrainModule.checkTask2()">Hesapla</button><div id="train-res2" class="result-box"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-war" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-war"><h1>🛡️ Retention Savaş Odası</h1></div>
+            <div id="war-select" class="level-screen"><div class="level-grid"><div class="level-card lvl-easy" onclick="WarModule.loadLevel('easy')"><h3>Maaş</h3></div><div class="level-card lvl-mid" onclick="WarModule.loadLevel('mid')"><h3>Burnout</h3></div><div class="level-card lvl-hard" onclick="WarModule.loadLevel('hard')"><h3>Kültür</h3></div></div></div>
+            <div id="war-game" class="game-content">
+                 <div class="thinking-box"><h4>🤔 Stratejik Soru</h4><ul><li>Sayısal veriler (Turnover) ile Anket verileri (Memnuniyet) çelişirse hangisine güvenirsiniz?</li></ul></div>
+                <div class="game-info"><div class="info-box">Ayrılan<div class="val" id="war-leavers"></div></div></div>
+                <div class="task-section"><h3>Riskli Grup</h3><div style="display:flex;gap:10px"><div class="chart-box" style="flex:1"><canvas id="war-chart1"></canvas></div><div class="chart-box" style="flex:1"><canvas id="war-chart2"></canvas></div></div><div class="input-row"><select id="war-inp1"><option value="">Seç...</option><option value="Sales">Satış</option><option value="IT">IT</option><option value="HR">İK</option></select></div><button class="btn btn-check" onclick="WarModule.checkTask1()">Kontrol</button><div id="war-res1" class="result-box"></div></div>
+                <div class="task-section"><h3>Kök Neden</h3><div class="chart-box" style="height:200px"><canvas id="war-chart3"></canvas></div><div class="input-row"><select id="war-inp2"><option value="">Seç...</option><option value="salary">Maaş</option><option value="burnout">Tükenmişlik</option><option value="mgmt">Yönetim</option></select></div><button class="btn btn-check" onclick="WarModule.checkTask2()">Bitir</button><div id="war-res2" class="result-box"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-perf" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-perf"><h1>📊 Performans (9-Box)</h1></div>
+            <div id="perf-select" class="level-screen"><div class="level-grid"><div class="level-card lvl-easy" onclick="PerfModule.loadLevel('easy')"><h3>Küçük Ekip</h3></div><div class="level-card lvl-mid" onclick="PerfModule.loadLevel('mid')"><h3>Orta Yön.</h3></div><div class="level-card lvl-hard" onclick="PerfModule.loadLevel('hard')"><h3>Direktör</h3></div></div></div>
+            <div id="perf-game" class="game-content">
+                <div class="thinking-box"><h4>🤔 Stratejik Soru</h4><ul><li>Yüksek performanslı herkes "Yüksek Potansiyelli" (Lider Adayı) midir?</li></ul></div>
+                <div class="task-section"><h3>Kalibrasyon</h3><div style="background:#f3e5f5; padding:15px; border-radius:10px;"><strong>Çalışan:</strong> <span id="perf-emp-name"></span><br><strong>Perf:</strong> <span id="perf-data-p"></span> | <strong>Pot:</strong> <span id="perf-data-pot"></span></div><div class="input-row"><select id="perf-inp1"><option value="">Seç...</option><option value="hipo">Yıldız</option><option value="solid">İstikrarlı</option><option value="risk">Riskli</option><option value="puzzle">Soru İşareti</option></select></div><button class="btn btn-check" onclick="PerfModule.checkTask1()">Kontrol</button><div id="perf-res1" class="result-box"></div></div>
+                <div class="task-section"><h3>Yedekleme</h3><div class="chart-box"><canvas id="perf-chart1"></canvas></div><div class="input-row"><select id="perf-inp2"><option value="">Seç...</option><option value="A">Aday A</option><option value="B">Aday B</option><option value="C">Aday C</option></select></div><button class="btn btn-check" onclick="PerfModule.checkTask2()">Seç</button><div id="perf-res2" class="result-box"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-swp" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-swp"><h1>📈 İşgücü Planlama</h1></div>
+            <div id="swp-select" class="level-screen"><div class="level-grid"><div class="level-card lvl-easy" onclick="SwpModule.loadLevel('easy')"><h3>Büyüme</h3></div><div class="level-card lvl-mid" onclick="SwpModule.loadLevel('mid')"><h3>Açık</h3></div><div class="level-card lvl-hard" onclick="SwpModule.loadLevel('hard')"><h3>Dönüşüm</h3></div></div></div>
+            <div id="swp-game" class="game-content">
+                <div class="thinking-box"><h4>🤔 Stratejik Soru</h4><ul><li>Açığı kapatmak için "Dışarıdan Almak" (Buy) mı, "Yetiştirmek" (Build) mi daha maliyetlidir?</li></ul></div>
+                <div class="game-info"><div class="info-box">Mevcut<div class="val" id="swp-current"></div></div><div class="info-box">Ayrılma<div class="val" id="swp-attrition"></div></div><div class="info-box">Büyüme<div class="val" id="swp-growth"></div></div></div>
+                <div class="task-section"><h3>GAP Analizi</h3><div class="chart-box"><canvas id="swp-chart1"></canvas></div><div class="input-row"><label>Tahmini Açık:</label><input type="number" id="swp-inp1"></div><button class="btn btn-check" onclick="SwpModule.checkTask1()">Hesapla</button><div id="swp-res1" class="result-box"></div></div>
+                <div class="task-section"><h3>Strateji</h3><div class="input-row"><select id="swp-inp2"><option value="">Seç...</option><option value="buy">Dışarıdan Al</option><option value="build">Yetiştir</option><option value="borrow">Danışman</option></select></div><button class="btn btn-check" onclick="SwpModule.checkTask2()">Uygula</button><div id="swp-res2" class="result-box"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-dei" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-dei"><h1>🌈 DEI & Kapsayıcılık</h1></div>
+            <div id="dei-select" class="level-screen"><div class="level-grid"><div class="level-card lvl-easy" onclick="DeiModule.loadLevel('easy')"><h3>Giriş</h3></div><div class="level-card lvl-mid" onclick="DeiModule.loadLevel('mid')"><h3>Orta</h3></div><div class="level-card lvl-hard" onclick="DeiModule.loadLevel('hard')"><h3>Üst</h3></div></div></div>
+            <div id="dei-game" class="game-content">
+                <div class="thinking-box"><h4>🤔 Stratejik Soru</h4><ul><li>Kadın çalışanların üst yönetimde azalması (Sızdıran Boru) bir "yetenek" sorunu mu, "kültür" sorunu mu?</li></ul></div>
+                <div class="task-section"><h3>Leaky Pipeline Analizi</h3><div class="chart-box"><canvas id="dei-chart1"></canvas></div><div class="input-row"><select id="dei-inp1"><option value="">Seç...</option><option value="entry">Giriş</option><option value="mid">Orta Yön.</option><option value="exec">Üst Yön.</option></select></div><button class="btn btn-check" onclick="DeiModule.checkTask1()">Tespit Et</button><div id="dei-res1" class="result-box"></div></div>
+                <div class="task-section"><h3>Çözüm Bütçelemesi</h3><div class="input-row"><select id="dei-inp2"><option value="">Seç...</option><option value="hiring">Sadece İşe Alım</option><option value="mentoring">Mentorluk & Kültür</option><option value="pr">Reklam</option></select></div><button class="btn btn-check" onclick="DeiModule.checkTask2()">Onayla</button><div id="dei-res2" class="result-box"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-ona" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-ona"><h1>🕸️ ONA (Ağ Analizi)</h1></div>
+            <div id="ona-select" class="level-screen"><div class="level-grid"><div class="level-card lvl-easy" onclick="OnaModule.loadLevel('easy')"><h3>Küçük Ofis</h3></div><div class="level-card lvl-mid" onclick="OnaModule.loadLevel('mid')"><h3>Silo</h3></div><div class="level-card lvl-hard" onclick="OnaModule.loadLevel('hard')"><h3>Ajanlar</h3></div></div></div>
+            <div id="ona-game" class="game-content">
+                <div class="thinking-box"><h4>🤔 Stratejik Soru</h4><ul><li>Resmi organizasyon şeması ile gerçek iletişim ağı neden farklıdır?</li></ul></div>
+                <div class="task-section"><h3>Gizli Lideri Bul</h3><div class="chart-box"><canvas id="ona-chart1"></canvas></div><div class="input-row"><input type="text" id="ona-inp1" placeholder="İsim (Örn: B)"></div><button class="btn btn-check" onclick="OnaModule.checkTask1()">Tespit Et</button><div id="ona-res1" class="result-box"></div></div>
+                <div class="task-section"><h3>Risk Analizi</h3><div class="input-row"><select id="ona-inp2"><option value="">Seç...</option><option value="none">Etkisiz</option><option value="silo">İletişim Kopar (Silo)</option><option value="speed">Yavaşlar</option></select></div><button class="btn btn-check" onclick="OnaModule.checkTask2()">Analiz Et</button><div id="ona-res2" class="result-box"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-isg" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-isg"><h1>⛑️ İş Sağlığı ve Güvenliği</h1></div>
+            <div id="isg-select" class="level-screen">
+                <h2>Seviye Seçin</h2>
+                <div class="level-grid">
+                    <div class="level-card lvl-easy" onclick="IsgModule.loadLevel('easy')"><h3>Güvenli Saha</h3><p>Düşük risk.</p></div>
+                    <div class="level-card lvl-mid" onclick="IsgModule.loadLevel('mid')"><h3>Risk Artışı</h3><p>Ramak kala artıyor.</p></div>
+                    <div class="level-card lvl-hard" onclick="IsgModule.loadLevel('hard')"><h3>Kör Nokta</h3><p>Bildirim yok ama kaza var.</p></div>
+                </div>
+            </div>
+            <div id="isg-game" class="game-content">
+                <div class="thinking-box">
+                    <h4>🤔 Stratejik Soru</h4>
+                    <ul>
+                        <li>"Ramak Kala" (Near Miss) bildirimlerinin artması kötü bir şey midir? Yoksa güvenlik kültürünün geliştiğini mi gösterir?</li>
+                    </ul>
+                </div>
+                <div class="task-section">
+                    <h3>Heinrich Piramidi Trendi</h3>
+                    <p>Ramak kala bildirimleri ile gerçekleşen kazalar arasındaki ilişkiyi yorumlayın.</p>
+                    <div class="chart-box"><canvas id="isg-chart1"></canvas></div>
+                    <div class="input-row">
+                        <label>Gidişat Nasıl?</label>
+                        <select id="isg-inp1">
+                            <option value="">Seçiniz...</option>
+                            <option value="safe">Güvenli (Bildirim var, Kaza yok)</option>
+                            <option value="risk">Riskli (Bildirim artıyor, Kaza da artıyor)</option>
+                            <option value="blind">Tehlikeli (Bildirim yok, Kaza aniden oluyor)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-check" onclick="IsgModule.checkTask1()">Analiz Et</button>
+                    <div id="isg-res1" class="result-box"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-ben" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-ben"><h1>🎁 Yan Haklar (Total Rewards)</h1></div>
+            <div id="ben-select" class="level-screen">
+                <h2>Seviye Seçin</h2>
+                <div class="level-grid">
+                    <div class="level-card lvl-easy" onclick="BenModule.loadLevel('easy')"><h3>Genç Ekip</h3><p>Spor & Sosyal.</p></div>
+                    <div class="level-card lvl-mid" onclick="BenModule.loadLevel('mid')"><h3>Aile Odaklı</h3><p>Sağlık & Okul.</p></div>
+                    <div class="level-card lvl-hard" onclick="BenModule.loadLevel('hard')"><h3>Hibrit</h3><p>Esneklik Talebi.</p></div>
+                </div>
+            </div>
+            <div id="ben-game" class="game-content">
+                <div class="thinking-box">
+                    <h4>🤔 Stratejik Soru</h4>
+                    <ul>
+                        <li>Şirket için "Pahalı" olan bir yan hak, çalışan için "Değersiz" olabilir mi? (Algılanan Değer Analizi)</li>
+                    </ul>
+                </div>
+                <div class="task-section">
+                    <h3>Maliyet vs. Değer Matrisi</h3>
+                    <p>Grafiğe bakarak; Şirket için PAHALI ama çalışan için DEĞERSİZ (Çöp Yatırım) olan yan hakkı bulun.</p>
+                    <div class="chart-box"><canvas id="ben-chart1"></canvas></div>
+                    <div class="input-row">
+                        <label>Kaldırılması gereken yan hak hangisi?</label>
+                        <select id="ben-inp1">
+                            <option value="">Seçiniz...</option>
+                            <option value="Gym">Spor Salonu</option>
+                            <option value="Ins">Özel Sağlık Sigortası</option>
+                            <option value="Food">Yemek Kartı</option>
+                            <option value="Car">Şirket Aracı</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-check" onclick="BenModule.checkTask1()">Optimize Et</button>
+                    <div id="ben-res1" class="result-box"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mod-sent" class="module-container">
+        <button class="back-btn" onclick="App.goHome()">← Menü</button>
+        <div class="sim-wrapper">
+            <div class="sim-header bg-sent"><h1>💬 Duygu Analizi (Sentiment)</h1></div>
+            <div id="sent-select" class="level-screen">
+                <h2>Seviye Seçin</h2>
+                <div class="level-grid">
+                    <div class="level-card lvl-easy" onclick="SentModule.loadLevel('easy')"><h3>Mutlu Ofis</h3><p>Pozitif ağırlıklı.</p></div>
+                    <div class="level-card lvl-mid" onclick="SentModule.loadLevel('mid')"><h3>Gizli Stres</h3><p>Kelimeler yorgun.</p></div>
+                    <div class="level-card lvl-hard" onclick="SentModule.loadLevel('hard')"><h3>Toksik</h3><p>Negatif söylemler.</p></div>
+                </div>
+            </div>
+            <div id="sent-game" class="game-content">
+                <div class="thinking-box">
+                    <h4>🤔 Stratejik Soru</h4>
+                    <ul>
+                        <li>Çalışan bağlılık skoru (1-5 arası) yüksek olsa bile, açık uçlu yorumlarda "Tükenmişlik" sinyalleri olabilir mi?</li>
+                    </ul>
+                </div>
+                <div class="task-section">
+                    <h3>Kelime Bulutu Analizi</h3>
+                    <p>Çalışan yorumlarında en sık geçen kelimelere bakarak ana problemi tespit edin.</p>
+                    <div class="chart-box"><canvas id="sent-chart1"></canvas></div>
+                    <div class="input-row">
+                        <label>Bu kelimeler neye işaret ediyor?</label>
+                        <select id="sent-inp1">
+                            <option value="">Seçiniz...</option>
+                            <option value="happy">Motivasyon Yüksek</option>
+                            <option value="burnout">Tükenmişlik (Burnout)</option>
+                            <option value="money">Ücret Memnuniyetsizliği</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-check" onclick="SentModule.checkTask1()">Tespit Et</button>
+                    <div id="sent-res1" class="result-box"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const App={charts:[],openModule:(id)=>{document.getElementById('main-menu').style.display='none';document.querySelectorAll('.module-container').forEach(d=>d.style.display='none');document.getElementById('mod-'+id).style.display='block';document.getElementById(id+'-select').style.display='block';document.getElementById(id+'-game').style.display='none'},goHome:()=>{document.querySelectorAll('.module-container').forEach(d=>d.style.display='none');document.getElementById('main-menu').style.display='block';App.destroyCharts()},newChart:(ctx,config)=>{const c=new Chart(ctx,config);App.charts.push(c);return c},destroyCharts:()=>{App.charts.forEach(c=>c.destroy());App.charts=[]}};
+        
+        // --- MEVCUT MODÜLLER (TÜRKÇELEŞTİRİLMİŞ) ---
+        const RecModule={data:{easy:{budget:"₺10.000",funnel:[500,100,20,5],bottleneck:'offer',ans1:20},mid:{budget:"₺80.000",funnel:[2000,400,100,10],bottleneck:'accept',ans1:20},hard:{budget:"₺5.000",funnel:[1000,500,200,2],bottleneck:'tech',ans1:50}},current:null,loadLevel:(lvl)=>{RecModule.current=RecModule.data[lvl];document.getElementById('rec-select').style.display='none';document.getElementById('rec-game').style.display='block';document.getElementById('rec-budget').innerText=RecModule.current.budget;App.destroyCharts();App.newChart(document.getElementById('rec-chart1'),{type:'bar',data:{labels:['Başvuru','Mülakat','Teknik','Teklif'],datasets:[{label:'Aday',data:RecModule.current.funnel,backgroundColor:'#2ecc71'}]},options:{indexAxis:'y'}});RecModule.reset()},checkTask1:()=>{RecModule.res('rec-res1',parseInt(document.getElementById('rec-inp1').value)==RecModule.current.ans1)},checkTask2:()=>{RecModule.res('rec-res2',document.getElementById('rec-inp2').value==RecModule.current.bottleneck)},res:(id,ok)=>{const el=document.getElementById(id);el.style.display='block';el.className=ok?"result-box res-success":"result-box res-error";el.innerText=ok?"✅ Doğru!":"❌ Yanlış."},reset:()=>{document.querySelectorAll('#mod-rec .result-box').forEach(e=>e.style.display='none');document.querySelectorAll('#mod-rec input, #mod-rec select').forEach(e=>e.value='')}};
+        const CompModule={data:{easy:{budget:"₺50k",ans1:0.90,sal:[45,50]},mid:{budget:"₺100k",ans1:0.80,sal:[40,50]},hard:{budget:"₺20k",ans1:1.33,sal:[80,60]}},current:null,loadLevel:(lvl)=>{CompModule.current=CompModule.data[lvl];document.getElementById('comp-select').style.display='none';document.getElementById('comp-game').style.display='block';document.getElementById('comp-budget').innerText=CompModule.current.budget;App.destroyCharts();App.newChart(document.getElementById('comp-chart1'),{type:'bar',data:{labels:['Personel','Piyasa'],datasets:[{label:'Maaş (Bin ₺)',data:CompModule.current.sal,backgroundColor:['#3498db','#95a5a6']}]}});document.getElementById('comp-employees').innerHTML='<div style="padding:10px; border:1px solid #eee">Personel A, B, C...</div>';CompModule.reset()},checkTask1:()=>{CompModule.res('comp-res1',Math.abs(parseFloat(document.getElementById('comp-inp1').value)-CompModule.current.ans1)<0.05)},checkTask2:()=>{CompModule.res('comp-res2',true)},res:(id,ok)=>{const el=document.getElementById(id);el.style.display='block';el.className=ok?"result-box res-success":"result-box res-error";el.innerText=ok?"✅ Doğru!":"❌ Yanlış."},reset:()=>{document.querySelectorAll('#mod-comp .result-box').forEach(e=>e.style.display='none');document.getElementById('comp-inp1').value=''}};
+        const TrainModule={data:{easy:{roi:100,d:[10,20]},mid:{roi:-50,d:[20,25]},hard:{roi:100,d:[50,150]}},current:null,loadLevel:(lvl)=>{TrainModule.current=TrainModule.data[lvl];document.getElementById('train-select').style.display='none';document.getElementById('train-game').style.display='block';App.destroyCharts();App.newChart(document.getElementById('train-chart1'),{type:'bar',data:{labels:['Kontrol','Eğitim'],datasets:[{label:'Satış (₺)',data:TrainModule.current.d,backgroundColor:['#95a5a6','#FF8008']}]}});TrainModule.reset()},checkTask1:()=>{TrainModule.res('train-res1',true)},checkTask2:()=>{TrainModule.res('train-res2',parseFloat(document.getElementById('train-inp2').value)==TrainModule.current.roi)},res:(id,ok)=>{const el=document.getElementById(id);el.style.display='block';el.className=ok?"result-box res-success":"result-box res-error";el.innerText=ok?"✅ Doğru!":"❌ Yanlış."},reset:()=>{document.querySelectorAll('#mod-train .result-box').forEach(e=>e.style.display='none');document.getElementById('train-inp2').value=''}};
+        const WarModule={data:{easy:{d:[10,50,10],c:'IT',r:'salary'},mid:{d:[60,20,20],c:'Sales',r:'burnout'},hard:{d:[20,20,60],c:'HR',r:'mgmt'}},current:null,loadLevel:(lvl)=>{WarModule.current=WarModule.data[lvl];document.getElementById('war-select').style.display='none';document.getElementById('war-game').style.display='block';App.destroyCharts();App.newChart(document.getElementById('war-chart1'),{type:'doughnut',data:{labels:['Satış','IT','İK'],datasets:[{data:WarModule.current.d,backgroundColor:['#3498db','#e74c3c','#f1c40f']}]}});App.newChart(document.getElementById('war-chart2'),{type:'bar',data:{labels:['0-1 Yıl','1-3 Yıl','3+ Yıl'],datasets:[{label:'İstifa',data:[10,50,20],backgroundColor:'#95a5a6'}]}});App.newChart(document.getElementById('war-chart3'),{type:'bar',data:{labels:['Memnuniyet','Maaş','Yönetim'],datasets:[{label:'Anket Puanı (Tersi)',data:[20,50,80],backgroundColor:'#8e44ad'}]}});WarModule.reset()},checkTask1:()=>{WarModule.res('war-res1',document.getElementById('war-inp1').value==WarModule.current.c)},checkTask2:()=>{WarModule.res('war-res2',document.getElementById('war-inp2').value==WarModule.current.r)},res:(id,ok)=>{const el=document.getElementById(id);el.style.display='block';el.className=ok?"result-box res-success":"result-box res-error";el.innerText=ok?"✅ Doğru!":"❌ Yanlış."},reset:()=>{document.querySelectorAll('#mod-war .result-box').forEach(e=>e.style.display='none');document.querySelectorAll('#mod-war select').forEach(e=>e.value='')}};
+        const PerfModule={data:{easy:{p:3,pot:3,ans:'hipo',sc:[{x:3,y:3}]},mid:{p:3,pot:1,ans:'solid',sc:[{x:3,y:3},{x:1,y:1}]},hard:{p:1,pot:3,ans:'puzzle',sc:[{x:1,y:3},{x:3,y:2}]}},current:null,loadLevel:(lvl)=>{PerfModule.current=PerfModule.data[lvl];document.getElementById('perf-select').style.display='none';document.getElementById('perf-game').style.display='block';App.destroyCharts();App.newChart(document.getElementById('perf-chart1'),{type:'scatter',data:{datasets:[{label:'Adaylar',data:PerfModule.current.sc,backgroundColor:'#8E2DE2'}]},options:{scales:{x:{min:0,max:4,title:{display:true,text:'Performans'}},y:{min:0,max:4,title:{display:true,text:'Potansiyel'}}}}});PerfModule.reset()},checkTask1:()=>{PerfModule.res('perf-res1',document.getElementById('perf-inp1').value==PerfModule.current.ans)},checkTask2:()=>{PerfModule.res('perf-res2',true)},res:(id,ok)=>{const el=document.getElementById(id);el.style.display='block';el.className=ok?"result-box res-success":"result-box res-error";el.innerText=ok?"✅ Doğru!":"❌ Yanlış."},reset:()=>{document.querySelectorAll('#mod-perf .result-box').forEach(e=>e.style.display='none')}};
+        const SwpModule={data:{easy:{gap:30,d:[100,90]},mid:{gap:60,d:[200,160]},hard:{gap:28,d:[50,48]}},current:null,loadLevel:(lvl)=>{SwpModule.current=SwpModule.data[lvl];document.getElementById('swp-select').style.display='none';document.getElementById('swp-game').style.display='block';App.destroyCharts();App.newChart(document.getElementById('swp-chart1'),{type:'line',data:{labels:['Bugün','Gelecek Yıl'],datasets:[{label:'Arz',data:SwpModule.current.d,borderColor:'#e74c3c'},{label:'Talep',data:[SwpModule.current.d[0],SwpModule.current.d[0]+SwpModule.current.gap],borderColor:'#2ecc71'}]}});SwpModule.reset()},checkTask1:()=>{SwpModule.res('swp-res1',Math.abs(parseInt(document.getElementById('swp-inp1').value)-SwpModule.current.gap)<5)},checkTask2:()=>{SwpModule.res('swp-res2',true)},res:(id,ok)=>{const el=document.getElementById(id);el.style.display='block';el.className=ok?"result-box res-success":"result-box res-error";el.innerText=ok?"✅ Doğru!":"❌ Yanlış."},reset:()=>{document.querySelectorAll('#mod-swp .result-box').forEach(e=>e.style.display='none')}};
+        const DeiModule={data:{easy:{d:[50,45,40],ans:'none'},mid:{d:[50,45,10],ans:'exec'},hard:{d:[50,20,5],ans:'mid'}},current:null,loadLevel:(lvl)=>{DeiModule.current=DeiModule.data[lvl];document.getElementById('dei-select').style.display='none';document.getElementById('dei-game').style.display='block';App.destroyCharts();App.newChart(document.getElementById('dei-chart1'),{type:'bar',data:{labels:['Giriş','Orta','Üst'],datasets:[{label:'Kadın Oranı (%)',data:DeiModule.current.d,backgroundColor:'#ec008c'}]}});DeiModule.reset()},checkTask1:()=>{DeiModule.res('dei-res1',document.getElementById('dei-inp1').value==DeiModule.current.ans)},checkTask2:()=>{DeiModule.res('dei-res2',true)},res:(id,ok)=>{const el=document.getElementById(id);el.style.display='block';el.className=ok?"result-box res-success":"result-box res-error";el.innerText=ok?"✅ Doğru!":"❌ Yanlış."},reset:()=>{document.querySelectorAll('#mod-dei .result-box').forEach(e=>e.style.display='none')}};
+        const OnaModule={data:{easy:{ans:'B',d:[{x:2,y:2},{x:5,y:5},{x:8,y:8}]},mid:{ans:'X',d:[{x:2,y:2},{x:5,y:5},{x:8,y:2}]},hard:{ans:'Z',d:[{x:2,y:5},{x:4,y:5},{x:6,y:5}]}},current:null,loadLevel:(lvl)=>{OnaModule.current=OnaModule.data[lvl];document.getElementById('ona-select').style.display='none';document.getElementById('ona-game').style.display='block';App.destroyCharts();App.newChart(document.getElementById('ona-chart1'),{type:'bubble',data:{datasets:[{label:'Ağ',data:OnaModule.current.d.map(p=>({x:p.x,y:p.y,r:15})),backgroundColor:'#2193b0'}]}});OnaModule.reset()},checkTask1:()=>{OnaModule.res('ona-res1',document.getElementById('ona-inp1').value.toUpperCase().includes(OnaModule.current.ans))},checkTask2:()=>{OnaModule.res('ona-res2',true)},res:(id,ok)=>{const el=document.getElementById(id);el.style.display='block';el.className=ok?"result-box res-success":"result-box res-error";el.innerText=ok?"✅ Doğru!":"❌ Yanlış."},reset:()=>{document.querySelectorAll('#mod-ona .result-box').forEach(e=>e.style.display='none')}};
+
+        // --- YENİ MODÜLLER (İSG, YAN HAKLAR, DUYGU) ---
+
+        const IsgModule = {
+            data: {
+                easy: { nm:[10,12,11], acc:[0,0,0], correct:'safe' },
+                mid:  { nm:[10,20,30], acc:[1,2,3], correct:'risk' },
+                hard: { nm:[0,0,0], acc:[0,0,5], correct:'blind' }
+            },
+            current: null,
+            loadLevel: (lvl) => {
+                IsgModule.current = IsgModule.data[lvl];
+                document.getElementById('isg-select').style.display='none';
+                document.getElementById('isg-game').style.display='block';
+                App.destroyCharts();
+                App.newChart(document.getElementById('isg-chart1'), {
+                    type: 'line',
+                    data: {
+                        labels: ['Ocak', 'Şubat', 'Mart'],
+                        datasets: [
+                            {label: 'Ramak Kala (Bildirim)', data: IsgModule.current.nm, borderColor: '#f39c12', fill:false},
+                            {label: 'Gerçekleşen Kaza', data: IsgModule.current.acc, borderColor: '#c0392b', fill:false}
+                        ]
+                    }
+                });
+                IsgModule.reset();
+            },
+            checkTask1: () => {
+                const val = document.getElementById('isg-inp1').value;
+                const ok = val === IsgModule.current.correct;
+                IsgModule.res('isg-res1', ok);
+            },
+            res: (id, ok) => {
+                const el = document.getElementById(id); el.style.display='block';
+                el.className = ok ? "result-box res-success" : "result-box res-error";
+                el.innerText = ok ? "✅ Doğru Analiz!" : "❌ Yanlış.";
+            },
+            reset: () => { document.getElementById('isg-res1').style.display='none'; document.getElementById('isg-inp1').value=''; }
+        };
+
+        const BenModule = {
+            data: {
+                easy: { correct:'Food', points:[{x:80,y:20,l:'Yemek Kartı'}, {x:20,y:90,l:'Spor'}] }, // Pahalı ve Değersiz: Yemek (Örn)
+                mid:  { correct:'Gym', points:[{x:90,y:10,l:'Spor Salonu'}, {x:50,y:80,l:'Sigorta'}] }, 
+                hard: { correct:'Car', points:[{x:95,y:5,l:'Şirket Aracı'}, {x:10,y:95,l:'Evden Çalışma'}] }
+            },
+            current: null,
+            loadLevel: (lvl) => {
+                BenModule.current = BenModule.data[lvl];
+                document.getElementById('ben-select').style.display='none';
+                document.getElementById('ben-game').style.display='block';
+                App.destroyCharts();
+                App.newChart(document.getElementById('ben-chart1'), {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Yan Haklar',
+                            data: BenModule.current.points.map(p=>({x:p.x, y:p.y})),
+                            backgroundColor: '#F2994A',
+                            pointRadius: 8
+                        }]
+                    },
+                    options: {
+                        plugins: { tooltip: { callbacks: { label: (ctx) => BenModule.current.points[ctx.dataIndex].l } } },
+                        scales: {
+                            x: {title: {display:true, text:'Maliyet (Şirket İçin)'}, min:0, max:100},
+                            y: {title: {display:true, text:'Algılanan Değer (Çalışan İçin)'}, min:0, max:100}
+                        }
+                    }
+                });
+                BenModule.reset();
+            },
+            checkTask1: () => {
+                const val = document.getElementById('ben-inp1').value;
+                // Scatter'da Cost yüksek (Sağ), Value düşük (Alt) olanı bulacağız.
+                // Basitleştirmek için hardcoded 'correct' değerini kontrol ediyoruz.
+                // Kullanıcı dropdown'dan seçiyor. Dropdown value'ları: Gym, Ins, Food, Car.
+                // Level datasına 'correct' key'i ekledik ve dropdown value ile eşleşmeli.
+                // Ancak level datasındaki label Türkçe. Mapping yapalım:
+                let userChoice = "";
+                if(val === 'Gym') userChoice = 'Spor Salonu';
+                if(val === 'Food') userChoice = 'Yemek Kartı';
+                if(val === 'Car') userChoice = 'Şirket Aracı';
+                
+                // Basit kontrol: Level datasındaki doğru cevabın labeliyle eşleşiyor mu?
+                // Daha basit: Data objesine kod ekleyelim.
+                // Data güncellendi -> correct: 'Car' vs.
+                
+                BenModule.res('ben-res1', val === BenModule.current.correct);
+            },
+            res: (id, ok) => {
+                const el = document.getElementById(id); el.style.display='block';
+                el.className = ok ? "result-box res-success" : "result-box res-error";
+                el.innerText = ok ? "✅ Harika! ROI düşük kalemi buldunuz." : "❌ Yanlış tercih. Maliyeti yüksek ama değeri düşük olanı seçin.";
+            },
+            reset: () => { document.getElementById('ben-res1').style.display='none'; document.getElementById('ben-inp1').value=''; }
+        };
+
+        const SentModule = {
+            data: {
+                easy: { words: [80, 20, 10], labels:['Ekip','Destek','Yorgun'], correct:'happy' },
+                mid:  { words: [90, 80, 10], labels:['Gece','Acil','Baskı'], correct:'burnout' },
+                hard: { words: [80, 50, 40], labels:['Maaş','Zam','Haksız'], correct:'money' }
+            },
+            current: null,
+            loadLevel: (lvl) => {
+                SentModule.current = SentModule.data[lvl];
+                document.getElementById('sent-select').style.display='none';
+                document.getElementById('sent-game').style.display='block';
+                App.destroyCharts();
+                App.newChart(document.getElementById('sent-chart1'), {
+                    type: 'bar',
+                    data: {
+                        labels: SentModule.current.labels,
+                        datasets: [{label: 'Kelime Frekansı', data: SentModule.current.words, backgroundColor: '#8E44AD'}]
+                    },
+                    options: { indexAxis: 'y' }
+                });
+                SentModule.reset();
+            },
+            checkTask1: () => {
+                const val = document.getElementById('sent-inp1').value;
+                SentModule.res('sent-res1', val === SentModule.current.correct);
+            },
+            res: (id, ok) => {
+                const el = document.getElementById(id); el.style.display='block';
+                el.className = ok ? "result-box res-success" : "result-box res-error";
+                el.innerText = ok ? "✅ Doğru Tespit!" : "❌ Kelimelere tekrar bakın.";
+            },
+            reset: () => { document.getElementById('sent-res1').style.display='none'; document.getElementById('sent-inp1').value=''; }
+        };
+
+    </script>
+</body>
+</html>
