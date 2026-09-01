@@ -1,1 +1,1 @@
-suacalis.github.io/hr_simulasyon adresinden ulaşabilirsiniz.
+https://suacalis.github.io/hr_simulasyon/ adresinden ulaşabilirsiniz
